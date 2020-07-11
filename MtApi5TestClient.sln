@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30225.117
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MtApi5TestClient", "MtApi5TestClient.csproj", "{38B9C657-BC2F-44F0-8824-54B31F2A64F5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Debug|x86.ActiveCfg = Debug|x86
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Debug|x86.Build.0 = Debug|x86
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Release|x86.ActiveCfg = Release|x86
+		{38B9C657-BC2F-44F0-8824-54B31F2A64F5}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BB3A87A3-670A-427B-A676-CEFC44ACE46F}
+	EndGlobalSection
+EndGlobal

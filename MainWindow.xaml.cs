@@ -8,25 +8,47 @@ namespace MtApi5TestClient
     /// </summary>
     public partial class MainWindow
     {
-        private ViewModel Vm { get; }
+        private ViewModel viewModel { get; }
 
         public MainWindow()
         {
             InitializeComponent();
 
-            Vm = new ViewModel();
-            _MainLayout.DataContext = Vm;
+            viewModel = new ViewModel();
+            mainGrid.DataContext = viewModel;
+
+            resolution.SelectionChanged += Resolution_SelectionChanged;
+
+            viewModel.ExecuteConnect(null);
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            Vm.Close();
+            viewModel.Close();
         }
 
         private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
         {
             var regex = new Regex("[^0-9]+");
             e.Handled = regex.IsMatch(e.Text);
+        }
+
+        private void buttonTrain_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if (mainChart != null)
+            {
+
+            }
+        }
+
+        private void Resolution_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (viewModel != null)
+                viewModel.Resolution = resolution.SelectedItem.ToString();
+        }
+        ~MainWindow()
+        {
+            resolution.SelectionChanged -= Resolution_SelectionChanged;
         }
     }
 }

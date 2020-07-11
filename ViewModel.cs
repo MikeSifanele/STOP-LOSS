@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.IO;
+using System.Linq;
 using Microsoft.Win32;
 
 namespace MtApi5TestClient
@@ -128,6 +129,19 @@ namespace MtApi5TestClient
 
         #region Properties
         private Mt5ConnectionState _connectionState;
+        private List<CandleStick> candleSticks;
+        private IEnumerable<Mt5Quote> mtQuotes;
+        public string Resolution;
+        public int RollingWindow { get; set; }
+        public List<CandleStick> CandleSticks
+        {
+            get { return candleSticks; }
+            set
+            {
+                candleSticks = value;
+                OnPropertyChanged("CandleSticks");
+            }
+        }
         public Mt5ConnectionState ConnectionState
         {
             get { return _connectionState; }
@@ -174,7 +188,7 @@ namespace MtApi5TestClient
         public ObservableCollection<QuoteViewModel> Quotes { get; } = new ObservableCollection<QuoteViewModel>();
 
         private QuoteViewModel _selectedQuote;
-        public QuoteViewModel SelectedQuote 
+        public QuoteViewModel SelectedQuote
         {
             get { return _selectedQuote; }
             set
@@ -295,16 +309,25 @@ namespace MtApi5TestClient
             _mtApiClient.OnLastTimeBar += _mtApiClient_OnLastTimeBar;
             _mtApiClient.OnLockTicks += _mtApiClient_OnLockTicks;
 
+            RollingWindow = 100;
+
+            Resolution = "M1";
+
             ConnectionState = _mtApiClient.ConnectionState;
             ConnectionMessage = "Disconnected";
             Port = 8228; //default local port
 
             InitCommands();
 
-            var request = new MqlTradeRequest { Action = ENUM_TRADE_REQUEST_ACTIONS.TRADE_ACTION_DEAL
-                , Type = ENUM_ORDER_TYPE.ORDER_TYPE_BUY
-                , Volume = 0.1
-                , Comment = "Test Trade Request"
+            var request = new MqlTradeRequest
+            {
+                Action = ENUM_TRADE_REQUEST_ACTIONS.TRADE_ACTION_DEAL
+                ,
+                Type = ENUM_ORDER_TYPE.ORDER_TYPE_BUY
+                ,
+                Volume = 0.1
+                ,
+                Comment = "Test Trade Request"
             };
 
             TradeRequest = new MqlTradeRequestViewModel(request);
@@ -315,6 +338,84 @@ namespace MtApi5TestClient
         public void Close()
         {
             _mtApiClient.BeginDisconnect();
+        }
+
+        public List<CandleStick> GetCandleSticks(DateTime startTime, bool isTraining = true, int peekWindow = 5)
+        {
+            var instrument = mtQuotes.FirstOrDefault().Instrument;
+
+            string label;
+
+            var candlesticks = new List<CandleStick>();
+
+            var priceInfo = GetPriceInfo(startTime, instrument);
+
+            for (var i = 0; i < priceInfo.Length; i++)
+            {
+                if (i == priceInfo.Length - 1)
+                {
+                    if (isTraining)
+                    {
+                        label = GetLabel(instrument, (ulong)priceInfo[i].mt_time, priceInfo[i].close);
+                        candlesticks.Add(new CandleStick {Date = priceInfo[i].time, Open = priceInfo[i].open, High = priceInfo[i].high, Low = priceInfo[i].low, Close = priceInfo[i].close, Label = label });
+                    }
+                    else
+                        candlesticks.Add(new CandleStick { Date = priceInfo[i].time, Open = priceInfo[i].open, High = priceInfo[i].high, Low = priceInfo[i].low, Close = priceInfo[i].close });
+                }
+                else
+                    candlesticks.Add(new CandleStick { Date = priceInfo[i].time, Open = priceInfo[i].open, High = priceInfo[i].high, Low = priceInfo[i].low, Close = priceInfo[i].close });
+            }
+
+            return candlesticks;
+        }
+
+        private string GetLabel(string instrument, ulong from, double price)
+        {
+            var mqlTicks = _mtApiClient.CopyTicks(instrument, from: from, count: 5);
+
+            var min = mqlTicks.Min();
+            var max = mqlTicks.Max();
+
+            if (price > max.last)
+                return "Sell";
+            else if (price < min.last)
+                return "Buy";
+            else
+                return "Hold";
+        }
+
+        private MqlRates[] GetPriceInfo(DateTime startTime, string instrument)
+        {
+            ENUM_TIMEFRAMES timeframe;
+            MqlRates[] priceInfo;
+            MqlTick mqlTick;
+
+            switch (Resolution)
+            {
+                case "M1":
+                    timeframe = ENUM_TIMEFRAMES.PERIOD_M1;
+                    break;
+                case "M5":
+                    timeframe = ENUM_TIMEFRAMES.PERIOD_M5;
+                    break;
+                case "H1":
+                    timeframe = ENUM_TIMEFRAMES.PERIOD_H1;
+                    break;
+                case "M30":
+                    timeframe = ENUM_TIMEFRAMES.PERIOD_M30;
+                    break;
+                default:
+                    timeframe = ENUM_TIMEFRAMES.PERIOD_M15;
+                    break;
+            }
+
+            _mtApiClient.CopyRates(symbolName: instrument, timeframe: timeframe, startTime: startTime, count: RollingWindow, ratesArray: out priceInfo);
+
+            mqlTick = _mtApiClient.CopyTicks(instrument, count: 1).FirstOrDefault();
+
+            priceInfo[RollingWindow - 1].close = mqlTick.last;
+
+            return priceInfo;
         }
 
         #endregion
@@ -370,7 +471,7 @@ namespace MtApi5TestClient
             SymbolInfoTickCommand = new DelegateCommand(ExecuteSymbolInfoTick);
             SymbolInfoSessionQuoteCommand = new DelegateCommand(ExecuteSymbolInfoSessionQuote);
             SymbolInfoSessionTradeCommand = new DelegateCommand(ExecuteSymbolInfoSessionTrade);
-            MarketBookAddCommand = new DelegateCommand(ExecuteMarketBookAdd);   
+            MarketBookAddCommand = new DelegateCommand(ExecuteMarketBookAdd);
             MarketBookReleaseCommand = new DelegateCommand(ExecuteMarketBookRelease);
             MarketBookGetCommand = new DelegateCommand(ExecuteMarketBookGet);
 
@@ -439,7 +540,7 @@ namespace MtApi5TestClient
             return ConnectionState == Mt5ConnectionState.Disconnected || ConnectionState == Mt5ConnectionState.Failed;
         }
 
-        private void ExecuteConnect(object o)
+        public void ExecuteConnect(object o)
         {
             if (string.IsNullOrEmpty(Host))
             {
@@ -448,7 +549,7 @@ namespace MtApi5TestClient
             else
             {
                 _mtApiClient.BeginConnect(Host, Port);
-            }            
+            }
         }
 
         private bool CanExecuteDisconnect(object o)
@@ -788,8 +889,8 @@ namespace MtApi5TestClient
                 }
             };
 
-            var retVal = await Execute(() => 
-                _mtApiClient.IndicatorCreate(TimeSeriesValues.SymbolValue, 
+            var retVal = await Execute(() =>
+                _mtApiClient.IndicatorCreate(TimeSeriesValues.SymbolValue,
                 TimeSeriesValues.TimeFrame, TimeSeriesValues.IndicatorType, parameters));
 
             TimeSeriesValues.IndicatorHandle = retVal;
@@ -799,7 +900,7 @@ namespace MtApi5TestClient
         private async void ExecuteIndicatorRelease(object o)
         {
             var indicatorHandle = TimeSeriesValues.IndicatorHandle;
-   
+
             var retVal = await Execute(() => _mtApiClient.IndicatorRelease(indicatorHandle));
             AddLog($"IndicatorRelease [{indicatorHandle}]: result - {retVal}");
         }
@@ -1115,7 +1216,7 @@ namespace MtApi5TestClient
             const string comment = "Test PositionOpen";
             MqlTradeResult tradeResult = null;
 
-            var retVal = await Execute (() => _mtApiClient.PositionOpen(symbol, orderType, volume, price, sl, tp, comment, out tradeResult));
+            var retVal = await Execute(() => _mtApiClient.PositionOpen(symbol, orderType, volume, price, sl, tp, comment, out tradeResult));
             AddLog($"PositionOpen: symbol EURUSD retVal = {retVal}, result = {tradeResult}");
         }
 
@@ -1641,6 +1742,8 @@ namespace MtApi5TestClient
             switch (e.Status)
             {
                 case Mt5ConnectionState.Connected:
+                    mtQuotes = _mtApiClient.GetQuotes();
+                    CandleSticks = GetCandleSticks(DateTime.Now, false);
                     RunOnUiThread(OnConnected);
                     break;
                 case Mt5ConnectionState.Disconnected:
@@ -1774,5 +1877,14 @@ namespace MtApi5TestClient
 
         private readonly Dictionary<int, QuoteViewModel> _quotesMap = new Dictionary<int, QuoteViewModel>();
         #endregion
+    }
+    public struct CandleStick
+    {
+        public DateTime Date { get; set; }
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public string Label { get; set; }
     }
 }
